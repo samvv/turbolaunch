@@ -61,6 +61,10 @@ class Argument:
     def is_rest_pos(self) -> bool:
         return _are_bits_set(self.flags, ARGFLAGS_POSITIONAL | ARGFLAGS_REST)
 
+    @property
+    def is_optional(self) -> bool:
+        return self.min_count == 0
+
     def set_flag(self, enable = True) -> None:
         self.flags = _set_bit(self.flags, ARGFLAGS_FLAG, enable)
 
