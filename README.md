@@ -18,7 +18,7 @@ Simply create or edit a module with the following code:
 ```py
 def main() -> int:
     import turbolaunch
-    turbolaunch.launch('mylibrary.mainmodule')
+    turbolaunch.launch(__name__)
 ```
 
 In your `pyproject.toml`-file, you'd have something like this:
