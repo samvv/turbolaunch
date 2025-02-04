@@ -96,11 +96,14 @@ def _get_type_default(ty: Any) -> Any:
         if hasattr(ty, '_default_'):
             return getattr(ty, '_default_')
 
-def parse(prog: Program) -> tuple[Command, list[Any], dict[str, Any]]:
+def parse(prog: Program, argv: list[str] | None = None) -> tuple[Command, list[Any], dict[str, Any]]:
+
+    if argv is None:
+        argv = sys.argv[1:]
 
     # Variables used during processing of the arguments
     cmd = prog
-    args = Peek(sys.argv[1:])
+    args = Peek(argv)
     mapping: ArgValues = {}
     pos_index = 0
     pos_arg_count = 0
