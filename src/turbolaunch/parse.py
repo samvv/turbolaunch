@@ -9,9 +9,11 @@ from types import UnionType
 from typing import Any, Literal, TypeAliasType
 import typing
 
+from turbolaunch.constants import DEFAULT_MEMBER_NAME
+
 from .program import ArgValues, Command, Program
 from .types import get_cls, has_type
-from .util import Peek, find, to_snake_case
+from .util import Peek, find, is_boolish, to_snake_case
 
 class CLIError(RuntimeError):
     pass
@@ -93,8 +95,8 @@ def _parse_value(text: str, ty: Any) -> Any:
 
 def _get_type_default(ty: Any) -> Any:
     if isinstance(ty, Enum):
-        if hasattr(ty, '_default_'):
-            return getattr(ty, '_default_')
+        if hasattr(ty, DEFAULT_MEMBER_NAME):
+            return getattr(ty, DEFAULT_MEMBER_NAME)
 
 def parse(prog: Program, argv: list[str] | None = None) -> tuple[Command, list[Any], dict[str, Any]]:
 
@@ -155,10 +157,10 @@ def parse(prog: Program, argv: list[str] | None = None) -> tuple[Command, list[A
                         pass # `value` remains `None` and lookahead is discarded
 
             if value is None:
-                if has_type(arg_desc.ty, bool) or arg_desc.is_rest_flags:
-                    # Assume `True` in the cases where a boolean is expected or
-                    # when it could potentially be a boolean but we don't know
-                    # for sure
+                if is_boolish(arg_desc.ty) or arg_desc.is_rest_flags:
+                    # Assume `True` in the cases where a boolean-like value is
+                    # expected or when it could potentially be a boolean but we
+                    # don't know for sure
                     value = True
                 elif arg_desc.default is not None:
                     # For all types except bool, attempt to assign the default
@@ -219,5 +221,6 @@ def parse(prog: Program, argv: list[str] | None = None) -> tuple[Command, list[A
             else:
                 kwargs[name] = value
 
+    print(posargs, kwargs)
     return cmd, posargs, kwargs
 

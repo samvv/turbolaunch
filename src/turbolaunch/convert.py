@@ -5,10 +5,11 @@ import sys
 from types import ModuleType
 import typing
 
+from turbolaunch.constants import FALSE_MEMBER_NAME, TRUE_MEMBER_NAME
 from turbolaunch.types import describe_type
 
 from .program import *
-from .util import IndentWriter, to_kebab_case
+from .util import IndentWriter, ident, is_boolish, to_kebab_case
 
 def _inserter(name: str) -> ArgFn:
     def func(key: str, value: Any, out: ArgValues) -> None:
@@ -76,7 +77,6 @@ def convert(mod: ModuleType | str, name: str | None = None) -> Program:
         mod = importlib.import_module(mod)
 
     prog = Program(name)
-
 
     for name, proc in mod.__dict__.items():
 
@@ -153,3 +153,86 @@ def convert(mod: ModuleType | str, name: str | None = None) -> Program:
     add_complements(prog)
 
     return prog
+
+def _boolish_setter(map: Callable[[Any], bool], name: str, inverted: bool = False) -> ArgFn:
+    def func(_: str, value: Any, out: ArgValues) -> None:
+        out[name] = map(value != inverted)
+    return func
+
+def _bool_to_boolish_fn(ty: Any) -> Callable[[Any], bool]:
+    if ty is bool:
+        return ident
+    if hasattr(ty, TRUE_MEMBER_NAME) and hasattr(ty, FALSE_MEMBER_NAME):
+        return lambda x: getattr(ty, TRUE_MEMBER_NAME) if x else getattr(ty, FALSE_MEMBER_NAME)
+    raise ValueError(f'{ty} is not a valid boolean-like type')
+
+def add_complements(prog: Program) -> None:
+    """
+    Generates additional arguments that are the inverse of existing arguments.
+
+    Example: `--enable-foo` will ackquire `--disable-foo` and both will work.
+
+    Two additional flags can also be enabled that enable/disable all flags at once.
+
+    Example: `--enable-all` and `--disable-all`
+    """
+
+    def visit(cmd: Command) -> None:
+
+        enable_flags = list[tuple[str, Callable[[Any], bool]]]()
+        disable_flags = list[tuple[str, Callable[[Any], bool]]]()
+
+        for arg in list(cmd.arguments()):
+            if not arg.is_rest and is_boolish(arg.ty):
+                if arg.name.startswith('enable_'):
+                    suffix = arg.name[7:]
+                    map = _bool_to_boolish_fn(arg.ty)
+                    enable_flags.append((arg.name, map))
+                    arg.set_callback(_boolish_setter(map, arg.name))
+                    inv_arg = Argument('disable_' + suffix)
+                    inv_arg.set_callback(_boolish_setter(map, arg.name, inverted=True))
+                    inv_arg.set_optional()
+                    inv_arg.set_type(arg.ty)
+                    inv_arg.set_flag()
+                    cmd.add_argument(inv_arg)
+                elif arg.name.startswith('disable_'):
+                    suffix = arg.name[8:]
+                    map = _bool_to_boolish_fn(arg.ty)
+                    disable_flags.append((arg.name, map))
+                    arg.set_callback(_boolish_setter(map, arg.name))
+                    inv_arg = Argument('enable_' + suffix)
+                    inv_arg.set_optional()
+                    inv_arg.set_flag()
+                    inv_arg.set_type(arg.ty)
+                    inv_arg.set_callback(_boolish_setter(map, arg.name, inverted=True))
+                    cmd.add_argument(inv_arg)
+
+        if enable_flags or disable_flags:
+            enable_all = Argument('enable_all')
+            enable_all.set_flag()
+            enable_all.set_optional()
+            enable_all.set_type(bool)
+            def enable_all_cb(_: str, value: bool, out: ArgValues) -> None:
+                for name, map in enable_flags:
+                    out[name] = map(value)
+                for name, map in disable_flags:
+                    out[name] = map(not value)
+            enable_all.set_callback(enable_all_cb)
+            cmd.add_argument(enable_all)
+            disable_all = Argument('disable_all')
+            disable_all.set_flag()
+            disable_all.set_optional()
+            disable_all.set_type(bool)
+            def disble_all_cb(_: str, value: bool, out: ArgValues) -> None:
+                for name, map in disable_flags:
+                    out[name] = map(value)
+                for name, map in disable_flags:
+                    out[name] = map(not value)
+            disable_all.set_callback(disble_all_cb)
+            cmd.add_argument(disable_all)
+
+        for subcmd in cmd.subcommands():
+            visit(subcmd)
+
+    visit(prog)
+

@@ -1,8 +1,10 @@
 
 from collections.abc import Callable, Iterable, Sequence
 import re
-from typing import Generic, TextIO, TypeVar
+from typing import Any, Generic, TextIO, TypeVar
 from io import StringIO
+
+from turbolaunch.constants import FALSE_MEMBER_NAME, TRUE_MEMBER_NAME
 
 def to_kebab_case(name: str) -> str:
     return name.replace('_', '-')
@@ -74,3 +76,8 @@ class IndentWriter:
         self.write(text)
         self.write('\n')
 
+def ident(value: _T) -> _T:
+    return value
+
+def is_boolish(ty: Any) -> bool:
+    return ty is bool or (hasattr(ty, TRUE_MEMBER_NAME) and hasattr(ty, FALSE_MEMBER_NAME))

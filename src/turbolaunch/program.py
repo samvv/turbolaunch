@@ -16,11 +16,6 @@ ARGFLAGS_REST = 4
 def _set_arg_value(name: str, value: Any, out: ArgValues) -> None:
     out[name] = value
 
-def _bool_setter(name: str, inverted: bool = False) -> ArgFn:
-    def func(_: str, value: Any, out: ArgValues) -> None:
-        out[name] = value != inverted
-    return func
-
 def _are_bits_set(mask: int, bit: int) -> bool:
     return mask & bit == bit
 
@@ -160,73 +155,4 @@ class Command:
 
 class Program(Command):
     pass
-
-
-
-def add_complements(prog: Program) -> None:
-    """
-    Generates additional arguments that are the inverse of existing arguments.
-
-    Example: `--enable-foo` will ackquire `--disable-foo` and both will work.
-
-    Two additional flags can also be enabled that enable/disable all flags at once.
-
-    Example: `--enable-all` and `--disable-all`
-    """
-
-    def visit(cmd: Command) -> None:
-
-        enable_flags = []
-        disable_flags = []
-
-        for arg in list(cmd.arguments()):
-            if not arg.is_rest and arg.ty is bool:
-                if arg.name.startswith('enable_'):
-                    suffix = arg.name[7:]
-                    enable_flags.append(arg.name)
-                    arg.set_callback(_bool_setter(arg.name))
-                    inv_arg = Argument('disable_' + suffix)
-                    inv_arg.set_callback(_bool_setter(arg.name, inverted=True))
-                    inv_arg.set_optional()
-                    inv_arg.set_type(bool)
-                    inv_arg.set_flag()
-                    cmd.add_argument(inv_arg)
-                elif arg.name.startswith('disable_'):
-                    suffix = arg.name[8:]
-                    disable_flags.append(arg.name)
-                    arg.set_callback(_bool_setter(arg.name))
-                    inv_arg = Argument('enable_' + suffix)
-                    inv_arg.set_optional()
-                    inv_arg.set_flag()
-                    inv_arg.set_type(bool)
-                    inv_arg.set_callback(_bool_setter(arg.name, inverted=True))
-
-        if enable_flags or disable_flags:
-            enable_all = Argument('enable_all')
-            enable_all.set_flag()
-            enable_all.set_optional()
-            enable_all.set_type(bool)
-            def enable_all_cb(_: str, value: bool, out: ArgValues) -> None:
-                for name in enable_flags:
-                    out[name] = value
-                for name in disable_flags:
-                    out[name] = not value
-            enable_all.set_callback(enable_all_cb)
-            cmd.add_argument(enable_all)
-            disable_all = Argument('disable_all')
-            disable_all.set_flag()
-            disable_all.set_optional()
-            disable_all.set_type(bool)
-            def disble_all_cb(_: str, value: bool, out: ArgValues) -> None:
-                for name in disable_flags:
-                    out[name] = value
-                for name in disable_flags:
-                    out[name] = not value
-            disable_all.set_callback(disble_all_cb)
-            cmd.add_argument(disable_all)
-
-        for subcmd in cmd.subcommands():
-            visit(subcmd)
-
-    visit(prog)
 
