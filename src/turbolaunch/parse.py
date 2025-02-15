@@ -221,6 +221,5 @@ def parse(prog: Program, argv: list[str] | None = None) -> tuple[Command, list[A
             else:
                 kwargs[name] = value
 
-    print(posargs, kwargs)
     return cmd, posargs, kwargs
 
