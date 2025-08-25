@@ -46,7 +46,7 @@ def _parse_value(text: str, ty: Any) -> Any:
         assert(not ty.__type_params__)
         ty = ty.__value__
     origin = typing.get_origin(ty)
-    if origin is UnionType:
+    if origin is UnionType or origin is typing.Union:
         args = typing.get_args(ty)
         return _try_parse_value(text, args)
     if origin is Literal:
