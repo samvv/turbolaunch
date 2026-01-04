@@ -67,6 +67,67 @@ def _print_help(cmd: Command) -> None:
     _print_help_loop(cmd, out, 0)
     exit(1)
 
+def convert_command(proc, name: str | None = None):
+
+    sig = inspect.signature(proc)
+
+    cmd = Command(to_kebab_case(name or proc.__name__))
+
+    types = typing.get_type_hints(proc)
+
+    for name, param in sig.parameters.items():
+
+        ty = types[param.name]
+
+        arg = Argument(name)
+
+        arg.set_type(ty)
+
+        if param.default is not param.empty:
+            arg.set_default(param.default)
+            arg.set_optional()
+
+        if param.kind == param.POSITIONAL_ONLY or param.kind == param.POSITIONAL_OR_KEYWORD or param.kind == param.VAR_POSITIONAL:
+            arg.set_positional()
+        if param.kind == param.KEYWORD_ONLY or param.kind == param.POSITIONAL_OR_KEYWORD or param.kind == param.VAR_KEYWORD:
+            arg.set_flag()
+
+        if param.kind == param.VAR_KEYWORD:
+            if typing.get_origin(ty) is typing.Unpack:
+                args = typing.get_args(ty)
+                total = args[0].__total__
+                for k, v in typing.get_type_hints(args[0]).items():
+                    arg = Argument(k)
+                    arg.set_flag()
+                    required = True
+                    if typing.get_origin(v) is typing.NotRequired:
+                        required = False
+                        v = typing.get_args(v)[0]
+                    arg.set_type(v)
+                    if not total or not required:
+                        arg.set_optional()
+                    cmd.add_argument(arg)
+                continue
+            else:
+                arg.set_rest()
+                arg.set_callback(_inserter(name))
+        if param.kind == param.VAR_POSITIONAL:
+            arg.set_rest()
+            arg.set_no_max_count()
+            arg.set_callback(_append)
+
+        cmd.add_argument(arg)
+
+    cmd.set_callback(proc)
+
+    help_arg = Argument('help')
+    help_arg.set_flag()
+    help_arg.set_type(bool)
+    help_arg.set_callback(lambda key, value, out, cmd=cmd: _print_help(cmd))
+    cmd.add_argument(help_arg)
+
+    return cmd
+
 def convert(mod: ModuleType | str, name: str | None = None) -> Program:
 
     if name is None:
@@ -79,70 +140,8 @@ def convert(mod: ModuleType | str, name: str | None = None) -> Program:
     prog = Program(name)
 
     for name, proc in mod.__dict__.items():
-
         if not name.startswith('_') and callable(proc) and proc.__module__ == mod.__name__:
-
-            try:
-                sig = inspect.signature(proc)
-            except ValueError:
-                continue
-
-            cmd = Command(to_kebab_case(name))
-
-            types = typing.get_type_hints(proc)
-
-            for name, param in sig.parameters.items():
-
-                ty = types[param.name]
-
-                arg = Argument(name)
-
-                arg.set_type(ty)
-
-                if param.default is not param.empty:
-                    arg.set_default(param.default)
-                    arg.set_optional()
-
-                if param.kind == param.POSITIONAL_ONLY or param.kind == param.POSITIONAL_OR_KEYWORD or param.kind == param.VAR_POSITIONAL:
-                    arg.set_positional()
-                if param.kind == param.KEYWORD_ONLY or param.kind == param.POSITIONAL_OR_KEYWORD or param.kind == param.VAR_KEYWORD:
-                    arg.set_flag()
-
-                if param.kind == param.VAR_KEYWORD:
-                    if typing.get_origin(ty) is typing.Unpack:
-                        args = typing.get_args(ty)
-                        total = args[0].__total__
-                        for k, v in typing.get_type_hints(args[0]).items():
-                            arg = Argument(k)
-                            arg.set_flag()
-                            required = True
-                            if typing.get_origin(v) is typing.NotRequired:
-                                required = False
-                                v = typing.get_args(v)[0]
-                            arg.set_type(v)
-                            if not total or not required:
-                                arg.set_optional()
-                            cmd.add_argument(arg)
-                        continue
-                    else:
-                        arg.set_rest()
-                        arg.set_callback(_inserter(name))
-                if param.kind == param.VAR_POSITIONAL:
-                    arg.set_rest()
-                    arg.set_no_max_count()
-                    arg.set_callback(_append)
-
-                cmd.add_argument(arg)
-
-            cmd.set_callback(proc)
-
-            help_arg = Argument('help')
-            help_arg.set_flag()
-            help_arg.set_type(bool)
-            help_arg.set_callback(lambda key, value, out, cmd=cmd: _print_help(cmd))
-            cmd.add_argument(help_arg)
-
-            prog.add_subcommand(cmd)
+            prog.add_subcommand(convert_command(proc))
 
     help_arg = Argument('help')
     help_arg.set_flag()
