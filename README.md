@@ -43,7 +43,7 @@ def test(filename: str, foo: bool = False) -> int:
 The above code would be run like this:
 
 ```
-mycommand test --foo
+mycommand test loremipsum.txt --foo
 ```
 
 More options, such as programmatic usage and plugins will come soon.
