@@ -223,10 +223,10 @@ def add_complements(prog: Program) -> None:
             disable_all.set_optional()
             disable_all.set_type(bool)
             def disble_all_cb(_: str, value: bool, out: ArgValues) -> None:
+                for name, map in enable_flags:
+                    out[name] = map(not value)
                 for name, map in disable_flags:
                     out[name] = map(value)
-                for name, map in disable_flags:
-                    out[name] = map(not value)
             disable_all.set_callback(disble_all_cb)
             cmd.add_argument(disable_all)
 
