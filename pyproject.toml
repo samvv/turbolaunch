@@ -8,7 +8,7 @@ version = "1.0.0"
 description = "The definitive command-line arguments parser"
 readme = "README.md"
 requires-python = ">=3.12"
-license = { file = "LICENSE.txt" }
+license = "MIT"
 keywords = ["cli", "argparse", "library"]
 classifiers = [
   "Development Status :: 3 - Alpha",
@@ -17,9 +17,6 @@ classifiers = [
   "Intended Audience :: Developers",
   "Topic :: Software Development :: Libraries",
   "Topic :: Software Development :: Libraries :: Python Modules",
-
-  # Pick your license as you wish
-  "License :: OSI Approved :: MIT License",
 
   # Specify the Python versions you support here. In particular, ensure
   # that you indicate you support Python 3. These classifiers are *not*
